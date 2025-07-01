@@ -120,9 +120,13 @@ interface MCMAPClientPlugin extends MCPClientPlugin {
 - **Track 9: Tool Integration & Interoperability** - Legacy system and vendor integration
 - **Track 10: Security & Privacy Implementation** - End-to-end security and privacy protection
 
+#### **Discovery & Ecosystem Tracks (Phase 3.5: 6 months)**
+- **Track 11: MCMAP Registry Extensions** - MCP Registry integration, server discovery, quality certification
+- **Track 12: Marketplace Integration** - Commercial server discovery, acquisition, and rating systems
+
 #### **Adoption & Operations Tracks (Phase 4: 6 months)**
-- **Track 11: Organizational Patterns** - Agency, in-house, and hybrid workflow templates
-- **Track 12: Certification & Testing** - Compliance testing, certification programs, interoperability
+- **Track 13: Organizational Patterns** - Agency, in-house, and hybrid workflow templates
+- **Track 14: Certification & Testing** - Compliance testing, certification programs, interoperability
 
 ### Governance Structure
 
@@ -282,12 +286,14 @@ interface MCMAPClientPlugin extends MCPClientPlugin {
 - **Reference Implementations**: TypeScript SDK, Python SDK, core servers
 
 #### Phase 3 (Months 7-9): Validation
-- **Track 12**: Certification & Testing (Basic validation)
+- **Track 11**: MCMAP Registry Extensions (Basic server discovery)
+- **Track 14**: Certification & Testing (Basic validation)
 - **Market Testing**: Industry pilots and feedback integration
 
 #### Post-IAB (Months 13+): Full Expansion
 - **Tracks 4-7**: Domain-Specific Standards (Creative, Media, Audience, Measurement)
-- **Tracks 9-11**: Integration, Security, Organizational Patterns
+- **Tracks 9-10**: Integration, Security, Organizational Patterns
+- **Track 12**: Marketplace Integration (Commercial ecosystem)
 
 ## Resource Requirements
 
