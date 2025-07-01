@@ -22,15 +22,20 @@ This document defines the **MCMAP Reference Architecture** for implementing AI-p
 
 ### Core Architecture Components
 
+The MCMAP ecosystem is designed to support the full spectrum of marketing and advertising applications. The architecture diagram below shows three representative applications, but MCMAP's plugin-based design enables integration with any marketing technology including CRM systems, email marketing platforms, social media management tools, e-commerce platforms, attribution systems, audience management platforms, programmatic advertising tools, and emerging MarTech solutions.
+
 ```
 MCMAP Ecosystem Architecture
 
 ┌─────────────────────────────────────────────────────────────────────┐
-│                       Marketing Applications                        │
+│                Marketing Applications (Examples)                    │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────┐   │
 │  │    Campaign     │ │    Creative     │ │     Media           │   │
 │  │   Management    │ │    Studio       │ │   Planning          │   │
 │  └─────────────────┘ └─────────────────┘ └─────────────────────┘   │
+│                                                                     │
+│  Additional Applications: CRM, Email Marketing, Social Media,       │
+│  E-commerce, Analytics, Attribution, Audience Management, etc.      │
 └─────────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────────────────┐
