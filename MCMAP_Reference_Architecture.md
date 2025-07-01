@@ -846,6 +846,65 @@ class MCMAPPublisher {
 }
 ```
 
+### 5. Marketplace Integration
+
+**Purpose**: Enable discovery and acquisition of commercial MCMAP servers through marketplace integration.
+
+```typescript
+interface MarketplaceIntegration {
+  // Commercial Listings
+  listCommercialServer(listing: ServerListing): Promise<ListingResult>;
+  updatePricing(serverId: string, pricing: PricingModel): Promise<void>;
+  manageLicensing(serverId: string, license: LicenseModel): Promise<void>;
+  
+  // Discovery & Purchase
+  searchMarketplace(criteria: MarketplaceCriteria): Promise<ServerListing[]>;
+  getServerPricing(serverId: string): Promise<PricingInfo>;
+  initiateServerPurchase(serverId: string, plan: PricingPlan): Promise<PurchaseResult>;
+  
+  // Reviews & Ratings
+  submitServerReview(serverId: string, review: ServerReview): Promise<void>;
+  getServerReviews(serverId: string): Promise<ServerReview[]>;
+  reportServerIssue(serverId: string, issue: ServerIssue): Promise<void>;
+}
+
+class MCMAPMarketplace {
+  constructor(private baseRegistry: BaseMCPRegistry) {}
+  
+  async searchMarketplace(criteria: MarketplaceCriteria): Promise<ServerListing[]> {
+    // Search official registry first
+    const baseResults = await this.baseRegistry.listServers(criteria.limit, criteria.cursor);
+    
+    // Filter for commercial offerings and enhance with marketplace data
+    const commercialServers = await Promise.all(
+      baseResults.servers
+        .filter(server => this.hasCommercialLicense(server))
+        .map(async (server) => {
+          const pricing = await this.getServerPricing(server.id);
+          const reviews = await this.getServerReviews(server.id);
+          const certification = await this.getCertificationStatus(server.id);
+          
+          return {
+            ...server,
+            marketplace_metadata: {
+              pricing,
+              reviews: reviews.slice(0, 5), // Top 5 reviews
+              averageRating: this.calculateAverageRating(reviews),
+              certification,
+              supportLevel: await this.getSupportLevel(server.id),
+              licenseType: await this.getLicenseType(server.id)
+            }
+          };
+        })
+    );
+    
+    return commercialServers.filter(server => 
+      this.matchesMarketplaceCriteria(server, criteria)
+    );
+  }
+}
+```
+
 ### MCMAP Registry Extension Benefits
 
 1. **Standards Compatibility**: Full compatibility with [official MCP Registry](https://github.com/modelcontextprotocol/registry) while adding industry-specific capabilities
