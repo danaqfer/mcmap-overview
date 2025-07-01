@@ -34,8 +34,10 @@ MCMAP Ecosystem Architecture
 │  │   Management    │ │    Studio       │ │   Planning          │   │
 │  └─────────────────┘ └─────────────────┘ └─────────────────────┘   │
 │                                                                     │
-│  Additional Applications: CRM, Email Marketing, Social Media,       │
-│  E-commerce, Analytics, Attribution, Audience Management, etc.      │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────┐   │
+│  │      CRM        │ │   E-commerce    │ │       ...           │   │
+│  │   Platforms     │ │   Platforms     │ │   (Many More)       │   │
+│  └─────────────────┘ └─────────────────┘ └─────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────────────────┐
