@@ -522,32 +522,63 @@ export class MeasurementAnalyticsServer extends MCPServer {
 
 ### MCP Registry Integration
 
-The emerging **MCP Registry initiative** focuses on discovery, access, and installation of MCP server components. MCMAP extends this foundation with industry-specific registry capabilities that enable MarTech/AdTech ecosystem discovery and quality assurance.
+The [official MCP Registry](https://github.com/modelcontextprotocol/registry) provides core server discovery, publishing, and package management capabilities. MCMAP extends this foundation with industry-specific registry capabilities that enable MarTech/AdTech ecosystem discovery, quality assurance, and compliance verification while maintaining full compatibility with the base registry.
 
 ### Registry Extension Architecture
 
 ```typescript
+// MCMAP Extensions to Official MCP Registry
 interface MCMAPRegistryExtensions {
-  // Server Discovery Extensions
-  discoverServers(criteria: MarTechDiscoveryCriteria): Promise<ServerListing[]>;
-  searchByCapability(capability: AdTechCapability): Promise<ServerListing[]>;
-  filterByCompliance(requirements: ComplianceRequirements): Promise<ServerListing[]>;
+  // Enhanced Discovery (extends GET /v0/servers)
+  searchMarTechServers(criteria: MarTechDiscoveryCriteria): Promise<EnhancedServerListing[]>;
+  filterByIndustryCompliance(requirements: ComplianceRequirements): Promise<ServerListing[]>;
+  searchByAdTechCapability(capability: AdTechCapability): Promise<ServerListing[]>;
   
-  // Quality Certification
-  getCertificationStatus(serverId: string): Promise<CertificationInfo>;
-  validateServerQuality(serverId: string): Promise<QualityAssessment>;
+  // Quality & Certification Extensions
+  getCertificationStatus(serverId: string): Promise<MCMAPCertificationInfo>;
+  submitQualityAssessment(serverId: string, assessment: QualityAssessment): Promise<void>;
   reportServerIssue(serverId: string, issue: ServerIssue): Promise<void>;
   
-  // Metadata Extensions
-  getCapabilityMetadata(serverId: string): Promise<CapabilityMetadata>;
+  // MCMAP-Specific Metadata Extensions
+  getMarTechMetadata(serverId: string): Promise<MarTechCapabilityMetadata>;
   getComplianceMetadata(serverId: string): Promise<ComplianceMetadata>;
-  getIntegrationMetadata(serverId: string): Promise<IntegrationMetadata>;
+  updateMCMAPMetadata(serverId: string, metadata: MCMAPMetadata): Promise<void>;
 }
 ```
 
-### 1. Server Discovery Extensions
+### Integration with Official MCP Registry API
 
-**Purpose**: Enable sophisticated discovery of MarTech/AdTech MCP servers based on industry-specific criteria.
+MCMAP Registry Extensions build upon the [official MCP Registry API](https://github.com/modelcontextprotocol/registry) endpoints:
+
+```typescript
+// Base MCP Registry API (official)
+interface BaseMCPRegistry {
+  // Core endpoints from official registry
+  listServers(limit?: number, cursor?: string): Promise<ServerListResponse>;
+  getServerDetails(id: string): Promise<ServerDetailResponse>;
+  publishServer(serverData: PublishRequest): Promise<PublishResponse>;
+  health(): Promise<HealthResponse>;
+  ping(): Promise<PingResponse>;
+}
+
+// MCMAP Extensions (additional endpoints)
+interface MCMAPRegistryAPI extends BaseMCPRegistry {
+  // Enhanced search with MarTech/AdTech filters
+  searchMarTechServers(criteria: MarTechCriteria): Promise<EnhancedServerListResponse>;
+  
+  // Compliance and certification endpoints
+  getCertification(serverId: string): Promise<MCMAPCertificationResponse>;
+  submitCertification(serverId: string, cert: CertificationData): Promise<void>;
+  
+  // Industry-specific metadata
+  getMarTechMetadata(serverId: string): Promise<MarTechMetadataResponse>;
+  updateMarTechMetadata(serverId: string, metadata: MarTechMetadata): Promise<void>;
+}
+```
+
+### 1. Enhanced Server Discovery
+
+**Purpose**: Extend the official `/v0/servers` endpoint with MarTech/AdTech-specific search capabilities.
 
 ```typescript
 interface MarTechDiscoveryCriteria {
@@ -572,37 +603,67 @@ interface MarTechDiscoveryCriteria {
 }
 
 class MCMAPServerDiscovery {
-  async discoverAdTechServers(
+  constructor(private baseRegistry: BaseMCPRegistry) {}
+  
+  async searchMarTechServers(
     criteria: MarTechDiscoveryCriteria
-  ): Promise<AdTechServerListing[]> {
-    // Query base MCP registry
-    const baseResults = await this.mcpRegistry.search({
-      categories: criteria.domains,
-      capabilities: criteria.capabilities
-    });
+  ): Promise<EnhancedServerListResponse> {
+    // Query official MCP registry using standard API
+    const baseResults = await this.baseRegistry.listServers(
+      criteria.limit || 30,
+      criteria.cursor
+    );
     
-    // Apply MCMAP-specific filters
-    const filteredResults = await Promise.all(
-      baseResults.map(async (server) => {
+    // Enhance results with MCMAP-specific metadata
+    const enhancedServers = await Promise.all(
+      baseResults.servers.map(async (server) => {
+        // Get additional MCMAP metadata if available
+        const mcmapMetadata = await this.getMarTechMetadata(server.id).catch(() => null);
         const compliance = await this.validateCompliance(server, criteria);
         const quality = await this.assessQuality(server, criteria);
-        const integration = await this.checkIntegration(server, criteria);
         
         return {
-          ...server,
-          mcmapMetadata: {
+          ...server, // Original server data from official registry
+          mcmapExtensions: {
+            marTechMetadata: mcmapMetadata,
             complianceScore: compliance.score,
             qualityRating: quality.rating,
-            integrationSupport: integration.supported,
-            certifications: compliance.certifications
+            certificationLevel: await this.getCertificationLevel(server.id),
+            industryTags: this.extractIndustryTags(server, mcmapMetadata)
           }
         };
       })
     );
     
-    return filteredResults.filter(server => 
-      server.mcmapMetadata.complianceScore >= criteria.minRating
+    // Apply MCMAP-specific filtering
+    const filteredServers = enhancedServers.filter(server => 
+      this.matchesCriteria(server, criteria)
     );
+    
+    return {
+      servers: filteredServers,
+      metadata: {
+        ...baseResults.metadata,
+        mcmapFiltersApplied: criteria,
+        totalMatchingServers: filteredServers.length
+      }
+    };
+  }
+  
+  private matchesCriteria(server: any, criteria: MarTechDiscoveryCriteria): boolean {
+    // Apply industry-specific filtering logic
+    const domainMatch = !criteria.domains.length || 
+      criteria.domains.some(domain => 
+        server.mcmapExtensions?.industryTags?.includes(domain)
+      );
+    
+    const complianceMatch = !criteria.minComplianceScore || 
+      server.mcmapExtensions?.complianceScore >= criteria.minComplianceScore;
+    
+    const qualityMatch = !criteria.minQualityRating || 
+      server.mcmapExtensions?.qualityRating >= criteria.minQualityRating;
+    
+    return domainMatch && complianceMatch && qualityMatch;
   }
 }
 ```
@@ -702,36 +763,97 @@ interface CapabilityMetadata {
 }
 ```
 
-### 4. Marketplace Integration
+### 4. Enhanced Publishing with MCMAP Metadata
 
-**Purpose**: Enable discovery and acquisition of commercial MCMAP servers through marketplace integration.
+**Purpose**: Extend the official `/v0/publish` endpoint to include MarTech/AdTech-specific metadata.
 
 ```typescript
-interface MarketplaceIntegration {
-  // Commercial Listings
-  listCommercialServer(listing: ServerListing): Promise<ListingResult>;
-  updatePricing(serverId: string, pricing: PricingModel): Promise<void>;
-  manageLicensing(serverId: string, license: LicenseModel): Promise<void>;
+// Enhanced publish request that extends official MCP Registry format
+interface MCMAPPublishRequest {
+  // Standard MCP Registry fields (from official API)
+  name: string;
+  description: string;
+  repository: {
+    url: string;
+    source: "github" | "gitlab" | "other";
+    id?: string;
+  };
+  packages: Array<{
+    registry_name: "npm" | "docker" | "pypi" | string;
+    name: string;
+    version: string;
+    package_arguments?: PackageArgument[];
+    runtime_arguments?: RuntimeArgument[];
+    environment_variables?: EnvironmentVariable[];
+  }>;
+  version_detail: {
+    version: string;
+    release_date?: string;
+    is_latest?: boolean;
+  };
   
-  // Discovery & Purchase
-  searchMarketplace(criteria: MarketplaceCriteria): Promise<ServerListing[]>;
-  getServerPricing(serverId: string): Promise<PricingInfo>;
-  initiateServerPurchase(serverId: string, plan: PricingPlan): Promise<PurchaseResult>;
+  // MCMAP-specific extensions
+  mcmap_metadata?: {
+    industry_domains: AdTechDomain[]; // 'dsp', 'ssp', 'dmp', 'analytics', etc.
+    compliance_frameworks: ComplianceFramework[]; // GDPR, CCPA, etc.
+    industry_standards: IndustryStandard[]; // IAB, MRC, etc.
+    martech_capabilities: MarTechCapability[];
+    brand_safety_features: BrandSafetyFeature[];
+    data_security_level: SecurityLevel;
+    certification_requests?: CertificationRequest[];
+  };
+}
+
+class MCMAPPublisher {
+  constructor(private baseRegistry: BaseMCPRegistry) {}
   
-  // Reviews & Ratings
-  submitServerReview(serverId: string, review: ServerReview): Promise<void>;
-  getServerReviews(serverId: string): Promise<ServerReview[]>;
-  reportServerIssue(serverId: string, issue: ServerIssue): Promise<void>;
+  async publishMarTechServer(
+    publishData: MCMAPPublishRequest,
+    authToken: string
+  ): Promise<PublishResponse> {
+    // Validate MCMAP-specific metadata
+    await this.validateMCMAPMetadata(publishData.mcmap_metadata);
+    
+    // Publish to official registry first
+    const publishResult = await this.baseRegistry.publishServer({
+      name: publishData.name,
+      description: publishData.description,
+      repository: publishData.repository,
+      packages: publishData.packages,
+      version_detail: publishData.version_detail
+    }, authToken);
+    
+    // Store MCMAP-specific metadata separately
+    if (publishData.mcmap_metadata && publishResult.id) {
+      await this.storeMCMAPMetadata(publishResult.id, publishData.mcmap_metadata);
+      
+      // Initiate automated compliance validation
+      await this.initiateComplianceValidation(publishResult.id, publishData.mcmap_metadata);
+      
+      // Queue for quality assessment
+      await this.queueQualityAssessment(publishResult.id);
+    }
+    
+    return {
+      ...publishResult,
+      mcmap_extensions: {
+        metadata_stored: !!publishData.mcmap_metadata,
+        compliance_validation_initiated: true,
+        quality_assessment_queued: true
+      }
+    };
+  }
 }
 ```
 
-### Registry Extension Benefits
+### MCMAP Registry Extension Benefits
 
-1. **Industry-Specific Discovery**: Find servers based on MarTech/AdTech requirements
-2. **Quality Assurance**: Certified, tested, and rated servers for enterprise use
-3. **Compliance Verification**: Automated compliance checking for regulatory requirements
-4. **Marketplace Integration**: Commercial discovery and acquisition of specialized servers
-5. **Community Feedback**: Reviews, ratings, and issue reporting for quality improvement
+1. **Standards Compatibility**: Full compatibility with [official MCP Registry](https://github.com/modelcontextprotocol/registry) while adding industry-specific capabilities
+2. **Enhanced Discovery**: MarTech/AdTech-specific search filters and metadata extending the standard `/v0/servers` endpoint
+3. **Industry Compliance**: Automated validation for GDPR, CCPA, IAB, and MRC standards
+4. **Quality Certification**: Multi-level certification system for enterprise adoption confidence
+5. **Seamless Integration**: Works with existing MCP Registry infrastructure and tooling
+6. **Community-Driven**: Builds upon the community-driven foundation of the official registry
 
 ---
 
